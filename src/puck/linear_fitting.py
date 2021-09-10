@@ -2,6 +2,25 @@
 
 import numpy as np
 
+class FitResult:
+    def __init__(self, param_names, values, errors, chi2dof=None):
+        from uncertainties import ufloat
+        assert len(param_names)==len(values)==len(errors)
+        self.param_names = list(param_names)
+        self.values = np.array(values)
+        self.errors = np.array(errors)
+        self.chi2dof = chi2dof
+
+    def __len__(self):
+        return len(self.param_names)
+
+    def __getitem__(self, key):
+        """ return result of parameter as ufloat """
+        from uncertainties import ufloat
+
+        if type(key) is str:
+            key = self.param_names.index(key)
+        return ufloat(self.values[key], self.errors[key])
 
 def fit_linear_basic(ys, es, models):
     models = np.array(models)
@@ -80,6 +99,8 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
 
     # normalize and check data input
     xs,ys,es,data = normalize_fit_input(*args)
+    if param_names is None:
+        param_names = [f"a_{i}" for i in range(len(models))]
 
     # determine prefactors from simple linear optimization
     cond = (x_min <= xs) & (xs < x_max)
@@ -137,14 +158,12 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
 
     if verbose:
         from uncertainties import ufloat
-        if param_names is None:
-            param_names = [f"a_{i}" for i in range(len(a))]
         print("chi^2/dof = {:.3f}".format(chi2 / dof))
         for i in range(len(a)):
             print("{} = {:u2S} ({:.2f} %)".format(
                 param_names[i], ufloat(a[i], a_err[i]), a_err[i] / np.abs(a[i]) * 100))
 
-    return a, a_err
+    return FitResult(values=a, errors=a_err, param_names=param_names, chi2dof=chi2/dof)
 
 
 def fit_poly(*args, exponents=[0, 1, 2], offset=0.0, **kwargs):
@@ -152,6 +171,7 @@ def fit_poly(*args, exponents=[0, 1, 2], offset=0.0, **kwargs):
     use 'fit_linear' to fit some polynomials
     """
     models = []
-    param_names = [f"a{i}" for i in exponents]
+    if "param_names" not in kwargs:
+        kwargs["param_names"] = [f"a{i}" for i in exponents]
     models = [(lambda e: lambda x: (x-offset)**e)(i) for i in exponents]
-    return fit_linear(*args, models=models, **kwargs, param_names=param_names)
+    return fit_linear(*args, models=models, **kwargs)

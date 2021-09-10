@@ -101,17 +101,20 @@ def autocorrelation(a, scale=1.0, C=5.0, common_mean=False, plot=False, log_plot
     if plot:
         assert not naive  # the naive algo does not produce error bars and such (could be implemented of course)
 
+        if plot is True:
+            plot = plt
+            plt.figure(figsize=(12, 4))
         assert a.ndim == 1
         import matplotlib.pyplot as plt
-        plt.figure(figsize=(12, 4))
+
         if log_plot:
-            plt.semilogy()
+            plot.semilogy()
         w = int(C * tau) + 1
-        plt.errorbar(np.arange(w) * scale, c[:w], yerr=e[:w], fmt="x")
+        plot.errorbar(np.arange(w) * scale, c[:w], yerr=e[:w], fmt="x")
         xs = np.linspace(0, C * tau)
-        plt.errorbar(xs * scale, np.exp(-xs / tau), fmt="-", label=f"tau = {tau*scale:.3f}")
-        plt.grid()
-        plt.legend()
+        plot.errorbar(xs * scale, np.exp(-xs / tau), fmt="-", label=r"$\tau_{int} = "+f"{tau*scale:.3f}$")
+        plot.grid()
+        plot.legend()
 
     return tau * scale
 
@@ -142,8 +145,10 @@ def autocorrelation_ext(a, plot=False, scale=1.0, C=5.0, log_plot=False):
         return chi2
 
     from iminuit import Minuit
-    m = Minuit(f, tau1=0.8 * tau, tau2=1.2 * tau, errordef=1,
-               error_tau1=np.abs(tau) * 0.1, error_tau2=np.abs(tau) * 0.1)
+    m = Minuit(f, tau1=0.8 * tau, tau2=1.2 * tau)
+    m.errordef = 1
+    m.errors["tau1"] = np.abs(tau)*0.1
+    m.errors["tau2"] = np.abs(tau)*0.1
     m.migrad()
     tau1 = m.values["tau1"]
     tau2 = m.values["tau2"]
@@ -158,17 +163,21 @@ def autocorrelation_ext(a, plot=False, scale=1.0, C=5.0, log_plot=False):
 
     if plot:
         import matplotlib.pyplot as plt
-        plt.figure(figsize=(12, 4))
+
+        if plot is True:
+            plot = plt
+            plt.figure(figsize=(12, 4))
+
         w = int(C * tau) + 1
-        plt.errorbar(np.arange(w) * scale, c[:w], e[:w], fmt="x")
+        plot.errorbar(np.arange(w) * scale, c[:w], e[:w], fmt="x")
         xs = np.linspace(0, C * tau)
 
-        plt.errorbar(xs * scale, a1 * np.exp(-xs / tau1) + a2 * np.exp(-xs / tau2), fmt="-", label=f"tau = {tau*scale:.3f}, tau1 = {tau1*scale:.3f}, tau2 = {tau2*scale:.3f}")
+        plot.errorbar(xs * scale, a1 * np.exp(-xs / tau1) + a2 * np.exp(-xs / tau2), fmt="-", label=f"tau = {tau*scale:.3f}, tau1 = {tau1*scale:.3f}, tau2 = {tau2*scale:.3f}")
 
         if log_plot:
-            plt.semilogy()
-        plt.grid()
-        plt.legend()
+            plot.semilogy()
+        plot.grid()
+        plot.legend()
 
     # return tau1*scale, tau2*scale, a1, a2
     return tau

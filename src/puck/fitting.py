@@ -8,19 +8,13 @@ from puck.statistics import *
 import inspect
 from uncertainties import ufloat
 
-def fit_minuit(data, model, guesses, xs=None, x_min=-float('inf'), x_max=float('inf'), plot=False, label=None, bootstrap=True):
+def fit_minuit(*args, model, guesses, xs=None, x_min=-float('inf'), x_max=float('inf'), plot=False, label=None, bootstrap=True, verbose=False):
     """
     fit 'model(x)' for arbitrary functions using minuit
     """
 
-    # check input
-    data = np.array(data)
-    assert len(data.shape) == 2
-    if xs is None: xs = np.arange(data.shape[1])
-
-    # generate datapoints
-    ys = data.mean(axis=0)
-    es = data.std(axis=0)/data.shape[0]**0.5
+    # check and normalize data
+    xs,ys,es,data = normalize_fit_input(*args)
     cond = (x_min <= xs) & (xs < x_max)
 
     # fit mean
@@ -46,6 +40,7 @@ def fit_minuit(data, model, guesses, xs=None, x_min=-float('inf'), x_max=float('
         m.migrad()
         result_list.append(list(m.values))
     result_list = np.array(result_list)
+    result_err = result_list.std(axis=0)
 
     if plot is True:
         import matplotlib.pyplot as plt
@@ -81,7 +76,18 @@ def fit_minuit(data, model, guesses, xs=None, x_min=-float('inf'), x_max=float('
             axs[1].grid(True)
             axs[1].legend()
 
-    return np.array(result_mean), result_list.std(axis=0)
+    if verbose:
+        print("chi2 / ({}-{}) = {:.2f}".format(xs[cond].shape[0], len(guesses), chi2dof))
+        bias = (result_list.mean(axis=0) - result_mean)/result_mean
+        for i in range(len(param_names)):
+            print("{:8}: {:12}, error = {:5.2f}%, bias = {:5.2f}%".format(
+                param_names[i],
+                f"{ufloat(result_mean[i], result_err[i]):u2S}",
+                np.abs(result_err[i]/result_mean[i])*100,
+                np.abs(bias[i])*100
+                ))
+
+    return FitResult(values=result_mean, errors=result_err, param_names=param_names, chi2dof=chi2dof)
 
 
 def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=float('inf'), plot=False, label=None, bootstrap=True, verbose=False, param_names=None, plot_log=False):
@@ -120,7 +126,9 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
     a_mean = list(minuit.values)
     a_err = list(minuit.errors)
     ms = [(lambda x, m=model: m(x, *a_mean)) for model in models]
-    c_mean, c_err = fit_linear(xs, ys, es, x_min=x_min, x_max=x_max, models=ms, plot=plot if not bootstrap else False, label=label)
+    tmp = fit_linear(xs, ys, es, x_min=x_min, x_max=x_max, models=ms, plot=plot if not bootstrap else False, label=label)
+    c_mean = np.array(tmp.values)
+    c_err = np.array(tmp.errors)
     result_mean = np.append(c_mean, a_mean)
     if not bootstrap:
         return result_mean, np.array([*c_err, *a_err])
@@ -222,7 +230,7 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
                 np.abs(bias[i])*100
                 ))
 
-    return result_mean, result_err
+    return FitResult(values=result_mean, errors=result_err, param_names=param_names, chi2dof=chi2dof)
 
 
 def fit_exp(*args, with_const=False, with_m2=False, guess=None, **kwargs):
@@ -254,10 +262,12 @@ def fit_exp(*args, with_const=False, with_m2=False, guess=None, **kwargs):
     if with_m2:
         kwargs2["verbose"] = False
         kwargs2["plot"] = False
-    mean,err = fit_varpro(*args, models=models, guesses=[guess], **kwargs2, param_names=param_names)
+    tmp = fit_varpro(*args, models=models, guesses=[guess], **kwargs2, param_names=param_names)
+    mean = np.array(tmp.values)
+    err = np.array(tmp.errors)
 
     if not with_m2:
-        return mean, err
+        return tmp
 
     if with_const:
         models = [
@@ -275,20 +285,30 @@ def fit_exp(*args, with_const=False, with_m2=False, guess=None, **kwargs):
 
     return fit_varpro(*args, models=models, guesses=[0.8*mean[-1], 1.2*mean[-1]], **kwargs, param_names=param_names)
 
-def fit_mass_multi(data, L, **kwargs):
+def fit_mass_multi(data, L, periodic=False, with_const=False, **kwargs):
     """ fit mass with multiple momenta simultaneously """
     # TODO: excited states, periodic boundaries
     assert data.ndim == 3
     mom2max = data.shape[1]-1
+    T = data.shape[2]
     models = []
     for p2 in range(0, mom2max+1):
         e = np.zeros((mom2max+1, 1))
         e[p2] = 1.0
-        models.append(lambda x, m, e=e, p2=(p2*(2*np.pi/L)**2): np.exp(-np.sqrt(m**2 + p2)*x)*e)
+        if periodic:
+            models.append(lambda x, m, e=e, p2=(p2*(2*np.pi/L)**2): (np.exp(-np.sqrt(m**2 + p2)*x)+np.exp(-np.sqrt(m**2 + p2)*(T-x)))*e)
+        else:
+            models.append(lambda x, m, e=e, p2=(p2*(2*np.pi/L)**2): np.exp(-np.sqrt(m**2 + p2)*x)*e)
+    if with_const:
+        models.append(lambda x, m, e=np.ones((mom2max+1,1)): x*0+e)
 
     if "label" not in kwargs:
         kwargs["label"] = [f"$p^2={p2}$" for p2 in range(0, mom2max+1)]
     if "param_names" not in kwargs:
-        kwargs["param_names"] = [f"c{i}" for i in range(0, mom2max+1)] + ["m"]
+        kwargs["param_names"] = [f"c{i}" for i in range(0, mom2max+1)]
+        if with_const:
+            kwargs["param_names"].append("A")
+        kwargs["param_names"].append("m")
+
 
     return fit_varpro(data, models=models, guesses=[0.5], **kwargs)
