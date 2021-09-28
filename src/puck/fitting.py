@@ -90,7 +90,7 @@ def fit_minuit(*args, model, guesses, xs=None, x_min=-float('inf'), x_max=float(
     return FitResult(values=result_mean, errors=result_err, param_names=param_names, chi2dof=chi2dof)
 
 
-def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=float('inf'), plot=False, label=None, bootstrap=True, verbose=False, param_names=None, plot_log=False):
+def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=float('inf'), plot=False, label_result=False, label=None, bootstrap=True, verbose=False, param_names=None, plot_log=False):
     """
     fit 'c1 * model1(x,a) + c2 * model2(x,a) + ...' using 'projected variable method'
     returns [c1, c2, ..., a1, a2, ...]
@@ -191,7 +191,10 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
         es_plot = bs_plot.std(axis=0)
 
         # plot everything (data + fit + error-band)
-
+        if label_result:
+            fit_label = "{} = {:.4S}".format(param_names[0], ufloat(result_mean[0], result_err[0]))
+        else:
+            fit_label = r"$\chi^2/dof={:.2f}$".format(chi2dof)
         if ys.ndim > 1:
             assert ys.ndim == 2
             if label is None:
@@ -201,12 +204,12 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
             for i in range(ys.shape[0]):
                 axs[0].errorbar(xs, ys[i], es[i], fmt="x", label=label[i])
             for i in range(ys.shape[0]):
-                axs[0].errorbar(xs_plot, ys_plot[i], fmt="-", label=r"$\chi^2/dof={:.2f}$".format(chi2dof) if i==0 else None)
+                axs[0].errorbar(xs_plot, ys_plot[i], fmt="-", label=fit_label if i==0 else None)
             for i in range(ys.shape[0]):
                 axs[0].fill_between(xs_plot, ys2_plot[i] - es_plot[i], ys2_plot[i] + es_plot[i], alpha=0.5)
         else:
             axs[0].errorbar(xs, ys, es, fmt="x", label=label)
-            axs[0].errorbar(xs_plot, ys_plot, fmt="-", label=r"$\chi^2/dof={:.2f}$".format(chi2dof))
+            axs[0].errorbar(xs_plot, ys_plot, fmt="-", label=fit_label)
             axs[0].fill_between(xs_plot, ys2_plot - es_plot, ys2_plot + es_plot, alpha=0.5)
         axs[0].legend()
         axs[0].grid(True)

@@ -1,10 +1,11 @@
 """ general linear fitting (Direct matrix inversion. No Minuit) """
 
 import numpy as np
+from uncertainties import ufloat
+import matplotlib.pyplot as plt
 
 class FitResult:
     def __init__(self, param_names, values, errors, chi2dof=None):
-        from uncertainties import ufloat
         assert len(param_names)==len(values)==len(errors)
         self.param_names = list(param_names)
         self.values = np.array(values)
@@ -16,7 +17,6 @@ class FitResult:
 
     def __getitem__(self, key):
         """ return result of parameter as ufloat """
-        from uncertainties import ufloat
 
         if type(key) is str:
             key = self.param_names.index(key)
@@ -88,7 +88,7 @@ def normalize_fit_input(first, second=None, third=None):
         assert data.shape[-1]==xs.shape[0]
     return xs, ys, es, data
 
-def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verbose=False, param_names=None, x_min=-float('inf'), x_max=float('inf')):
+def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, label_result=False, verbose=False, param_names=None, x_min=-float('inf'), x_max=float('inf'), bootstrap=None):
     """
     fit 1D data as linear combination of models.
       - data is assumed to be uncorrelated gaussian
@@ -96,6 +96,8 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
       - 'with_zero' and 'label' are just for plotting
       - returns fitted parameters and their errors
     """
+
+    # NOTE: the 'bootstrap' parameter is just accepted (and ignored) for convenience
 
     # normalize and check data input
     xs,ys,es,data = normalize_fit_input(*args)
@@ -119,7 +121,7 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
         assert plot is False, "plotting of multiple channels not supported (yet)"
 
     if plot is True:
-        import matplotlib.pyplot as plt
+
         fig, axs = plt.subplots(1, 2, figsize=(14, 6))
     elif type(plot) is np.ndarray or type(plot) is list:  # two plots for fit + residuals
         axs = plot
@@ -129,6 +131,11 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
         axs = None
 
     if axs is not None:
+        if label_result:
+            fit_label = "{} = {:.4S}".format(param_names[0], ufloat(a[0], a_err[0]))
+        else:
+            fit_label = r"$\chi^2/\mathrm{{dof}} = {:.2f}$".format(chi2/dof)
+
         # determine fit function and error band
         if with_zero:
             assert x_min == -float('inf'), "cant use 'with_zero' and 'x_min' at the same time"
@@ -142,7 +149,7 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
 
         # first plot: data + fit + error-band
         axs[0].errorbar(xs, ys, es, fmt="x", label=label)
-        axs[0].errorbar(xs_plot, ys_plot, fmt="-", label=r"$\chi^2/\mathrm{{dof}} = {:.2f}$".format(chi2/dof))
+        axs[0].errorbar(xs_plot, ys_plot, fmt="-", label=fit_label)
         axs[0].fill_between(xs_plot, ys_plot - es_plot,
                             ys_plot + es_plot, alpha=0.5)
         axs[0].legend()
@@ -157,7 +164,6 @@ def fit_linear(*args, models=None, plot=False, with_zero=False, label=None, verb
             axs[1].legend()
 
     if verbose:
-        from uncertainties import ufloat
         print("chi^2/dof = {:.3f}".format(chi2 / dof))
         for i in range(len(a)):
             print("{} = {:u2S} ({:.2f} %)".format(
