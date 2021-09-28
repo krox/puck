@@ -239,9 +239,9 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
     return FitResult(values=result_mean, errors=result_err, param_names=param_names, chi2dof=chi2dof)
 
 
-def fit_exp(*args, with_const=False, with_m2=False, guess=None, **kwargs):
+def fit_exp(*args, with_const=False, with_m=True, with_m2=False, with_degenerate=False, guess=None, **kwargs):
     """
-    fit 'C0 + C1 * exp(-M1*x) + C2 * exp(-M2*x)'
+    fit 'C0 + C1 * exp(-M1*x) + C2 * exp(-M2*x) + C3 * x * exp(-M1*x)'
        - fit is done using 'variable projected method'
        - errors are computed using bootstrap method
        - C0 and C2/M2 have to be turned on using with_const and with_m2
@@ -249,20 +249,23 @@ def fit_exp(*args, with_const=False, with_m2=False, guess=None, **kwargs):
        - returns [C0, C1, C2, M1, M2] (or subsets thereof)
        - 'guess' should be a guess of M
     """
+    if not with_m: assert with_degenerate
 
     if guess is None:
         guess = 0.5 # yeah, this is not very smart.
 
-
+    models = []
+    param_names = []
     if with_const:
-        models = [
-            lambda x, m: np.ones_like(x),
-            lambda x, m: np.exp(-m*x)
-        ]
-        param_names = ["c0", "c1", "m"]
-    else:
-        models = [lambda x, m: np.exp(-m*x)]
-        param_names = ["c1", "m"]
+        models.append(lambda x, m: np.ones_like(x))
+        param_names.append("c0")
+    if with_m:
+        models.append(lambda x, m: np.exp(-m*x))
+        param_names.append("c1")
+    if with_degenerate:
+        models.append(lambda x, m: x*np.exp(-m*x))
+        param_names.append("c3")
+    param_names.append("m")
 
     kwargs2 = kwargs.copy()
     if with_m2:
@@ -274,6 +277,7 @@ def fit_exp(*args, with_const=False, with_m2=False, guess=None, **kwargs):
 
     if not with_m2:
         return tmp
+    assert not with_degenerate # combined degenerate + m2 not implemented
 
     if with_const:
         models = [
