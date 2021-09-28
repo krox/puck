@@ -121,7 +121,8 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
     minuit.errordef = 1
     minuit.print_level = -1
     minuit.migrad()
-    assert(minuit.valid)
+    if not minuit.valid:
+        raise RuntimeError(f"ERROR: mean-fit did not converge. (label={label})")
     chi2dof = minuit.fval / (ysc.size - len(guesses) - len(models))
     a_mean = list(minuit.values)
     a_err = list(minuit.errors)
@@ -145,11 +146,14 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
     minuit_bs.errors = a_err
     minuit_bs.errordef = 1
     minuit_bs.print_level = -1
+    failed_bs = 0
     for i in range(ys_bs.shape[0]):
         ysc = ys_bs[i][..., cond]
         minuit_bs.reset()
         minuit_bs.migrad()
-        assert(minuit_bs.valid)
+        if not minuit_bs.valid:
+            failed_bs += 1
+            continue
         a = list(minuit_bs.values)
         ms = np.array([model(xsc, *a) for model in models])
         c = fit_linear_basic(ysc, esc, models=ms)
@@ -159,6 +163,8 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
     c_list = np.array(c_list)
     result_list = np.append(c_list, a_list, axis=1)
     result_err = result_list.std(axis=0, ddof=1)
+    if failed_bs != 0:
+        print(f"WARNING: {failed_bs} of {ys_bs.shape[0]} bootstrap samples did not converge. (label={label})")
 
     # and do our own plotting ( remember the difference between mean fit and mean of bootstrap-fits )
     if plot is True:
