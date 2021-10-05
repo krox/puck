@@ -239,7 +239,7 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
                 np.abs(bias[i])*100
                 ))
 
-    return FitResult(values=result_mean, errors=result_err, param_names=param_names, chi2dof=chi2dof)
+    return FitResult(values=result_mean, errors=result_err, param_names=param_names, chi2dof=chi2dof, bs=result_list)
 
 
 def fit_exp(*args, with_const=False, with_m=True, with_m2=False, with_degenerate=False, guess=None, **kwargs):

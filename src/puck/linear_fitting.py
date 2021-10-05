@@ -5,11 +5,12 @@ from uncertainties import ufloat
 import matplotlib.pyplot as plt
 
 class FitResult:
-    def __init__(self, param_names, values, errors, chi2dof=None):
+    def __init__(self, param_names, values, errors, chi2dof=None, bs=None):
         assert len(param_names)==len(values)==len(errors)
         self.param_names = list(param_names)
         self.values = np.array(values)
         self.errors = np.array(errors)
+        self.bs = None if bs is None else np.array(bs)
         self.chi2dof = chi2dof
 
     def __len__(self):
