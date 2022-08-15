@@ -2,6 +2,7 @@
 
 import numpy as np
 from puck.linear_fitting import fit_linear_basic
+import matplotlib.pyplot as plt
 
 
 def pad_axis(a, axis):
@@ -105,7 +106,6 @@ def autocorrelation(a, scale=1.0, C=5.0, common_mean=False, plot=False, log_plot
             plot = plt
             plt.figure(figsize=(12, 4))
         assert a.ndim == 1
-        import matplotlib.pyplot as plt
 
         if log_plot:
             plot.semilogy()

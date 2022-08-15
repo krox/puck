@@ -218,12 +218,12 @@ def fit_varpro(*args, models=None, guesses=None, x_min=-float('inf'), x_max=floa
             if ys.ndim > 1:
                 for i in range(ys.shape[0]):
                     axs[1].errorbar(xs, ys[i] - model_full(xs, c, a)[i], es[i], fmt="x", label=label[i])
-                axs[1].errorbar(xs_plot, 0.0, fmt="-", label=r"$\chi^2/dof={:.2f}$".format(chi2dof))
+                axs[1].errorbar(xs_plot, 0.0*xs_plot, fmt="-", label=r"$\chi^2/dof={:.2f}$".format(chi2dof))
                 for i in range(ys.shape[0]):
                     axs[1].fill_between(xs_plot, ys2_plot[i] - es_plot[i] - ys_plot[i], ys2_plot[i] + es_plot[i] - ys_plot[i], alpha=0.5)
             else:
                 axs[1].errorbar(xs, ys - model_full(xs, c, a), es, fmt="x", label=label)
-                axs[1].errorbar(xs_plot, 0.0, fmt="-", label=r"$\chi^2/dof={:.2f}$".format(chi2dof))
+                axs[1].errorbar(xs_plot, 0.0*xs_plot, fmt="-", label=r"$\chi^2/dof={:.2f}$".format(chi2dof))
                 axs[1].fill_between(xs_plot, ys2_plot - es_plot - ys_plot, ys2_plot + es_plot - ys_plot, alpha=0.5)
             axs[1].legend()
             axs[1].grid(True)
