@@ -18,5 +18,5 @@ setup(
     package_dir={'': 'src'},
     packages=find_packages(where='src'),  # Required
     python_requires='>=3.6, <4',
-    install_requires=['numpy', 'iminuit', 'matplotlib', 'natsort', 'h5py', 'progressbar'],
+    install_requires=['numpy', 'iminuit', 'matplotlib', 'natsort', 'h5py', 'progressbar', "uncertainties"],
 )
